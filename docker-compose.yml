@@ -1,0 +1,22 @@
+# GPU (NVIDIA) by default. CPU-only: docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build
+services:
+  api:
+    build: .
+    image: ai-image-service:latest
+    env_file: .env
+    environment:
+      STORAGE_DIR: /data
+    ports:
+      - "127.0.0.1:8000:8000" # localhost only; change to "8000:8000" to expose on your LAN
+    volumes:
+      # Host folder on your SSD/HDD, e.g. HOST_STORAGE_DIR=D:/AIImageData
+      - ${HOST_STORAGE_DIR:-./storage}:/data
+      - ./models:/models
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

@@ -1,0 +1,9 @@
+services:
+  api:
+    build:
+      args:
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
+    image: ai-image-service:cpu
+    environment:
+      YOLO_DEVICE: cpu
+    deploy: !reset {}

@@ -1,0 +1,100 @@
+{
+  "info": {
+    "name": "AI Image Processing Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Set collection variables baseUrl and apiKey. Run the collection in order: Upload saves imageId for the later requests."
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "X-API-Key", "type": "string" },
+      { "key": "value", "value": "{{apiKey}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "apiKey", "value": "change-me-to-a-long-random-string" },
+    { "key": "imageId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "auth": { "type": "noauth" },
+      "request": { "method": "GET", "url": "{{baseUrl}}/health" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('200 ok', () => pm.response.to.have.status(200));",
+        "pm.test('status ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+      ] } }]
+    },
+    {
+      "name": "Unauthorized without key",
+      "auth": { "type": "noauth" },
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/images" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('401', () => pm.response.to.have.status(401));"
+      ] } }]
+    },
+    {
+      "name": "Upload image",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/images",
+        "body": { "mode": "formdata", "formdata": [
+          { "key": "file", "type": "file", "src": "" },
+          { "key": "conf", "type": "text", "value": "0.25", "description": "optional" }
+        ] }
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('201 created', () => pm.response.to.have.status(201));",
+        "const body = pm.response.json();",
+        "pm.test('has detections array', () => pm.expect(body.detections).to.be.an('array'));",
+        "pm.collectionVariables.set('imageId', body.id);"
+      ] } }]
+    },
+    {
+      "name": "List images",
+      "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/images?limit=10", "host": ["{{baseUrl}}"], "path": ["api","v1","images"], "query": [{ "key": "limit", "value": "10" }] } },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('200', () => pm.response.to.have.status(200));",
+        "pm.test('has items', () => pm.expect(pm.response.json().items).to.be.an('array'));"
+      ] } }]
+    },
+    {
+      "name": "Get image",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/images/{{imageId}}" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('200', () => pm.response.to.have.status(200));",
+        "pm.test('id matches', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('imageId')));"
+      ] } }]
+    },
+    {
+      "name": "Download processed image",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/images/{{imageId}}/processed" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('200 jpeg', () => { pm.response.to.have.status(200); pm.response.to.have.header('Content-Type', 'image/jpeg'); });"
+      ] } }]
+    },
+    {
+      "name": "Export dataset (CVAT YOLO 1.1)",
+      "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/dataset/export?ids={{imageId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","dataset","export"], "query": [{ "key": "ids", "value": "{{imageId}}" }] } },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('zip', () => { pm.response.to.have.status(200); pm.response.to.have.header('Content-Type', 'application/zip'); });"
+      ] } }]
+    },
+    {
+      "name": "Sync to Azure",
+      "request": { "method": "POST", "url": "{{baseUrl}}/api/v1/sync/azure" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('200', () => pm.response.to.have.status(200));"
+      ] } }]
+    },
+    {
+      "name": "Delete image",
+      "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/images/{{imageId}}" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('204', () => pm.response.to.have.status(204));"
+      ] } }]
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+# Install torch/torchvision separately for your CUDA version, see README.
+# e.g. pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+ultralytics>=8.3.0
+opencv-python-headless>=4.9
