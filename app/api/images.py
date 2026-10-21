@@ -95,9 +95,12 @@ async def upload_batch(
 def list_images(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    object: str | None = Query(None, description="Only images containing this class, e.g. person"),
+    min_confidence: float = Query(0, ge=0, le=1, description="Used with `object`"),
     storage: Storage = Depends(get_storage),
 ):
-    total, items = storage.list_records(limit, offset)
+    """List images, newest first. Use `object=car` to find images where a car was detected."""
+    total, items = storage.list_records(limit, offset, object, min_confidence)
     return ImageList(total=total, limit=limit, offset=offset, items=items)
 
 

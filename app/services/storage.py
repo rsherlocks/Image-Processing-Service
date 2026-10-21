@@ -80,7 +80,23 @@ class Storage:
             row = db.execute("SELECT data FROM images WHERE id = ?", (image_id,)).fetchone()
         return ImageRecord.model_validate_json(row[0]) if row else None
 
-    def list_records(self, limit: int, offset: int) -> tuple[int, list[ImageRecord]]:
+    def list_records(
+        self, limit: int, offset: int, object_name: str | None = None, min_confidence: float = 0
+    ) -> tuple[int, list[ImageRecord]]:
+        if object_name:
+            # Detections live in the JSON blob, so filter in Python (fine at desktop scale).
+            wanted = object_name.strip().lower()
+            with self._conn() as db:
+                rows = db.execute("SELECT data FROM images ORDER BY created_at DESC").fetchall()
+            matches = [
+                r
+                for r in (ImageRecord.model_validate_json(row[0]) for row in rows)
+                if any(
+                    d.class_name.lower() == wanted and d.confidence >= min_confidence
+                    for d in r.detections
+                )
+            ]
+            return len(matches), matches[offset : offset + limit]
         with self._conn() as db:
             total = db.execute("SELECT COUNT(*) FROM images").fetchone()[0]
             rows = db.execute(

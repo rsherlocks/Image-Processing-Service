@@ -76,6 +76,20 @@ def test_get_list_download(client, auth, uploaded):
     assert proc.headers["content-type"] == "image/jpeg"
 
 
+def test_search_by_object(client, auth, uploaded):
+    hit = client.get("/api/v1/images?object=Person&min_confidence=0.5", headers=auth).json()
+    assert any(i["id"] == uploaded["id"] for i in hit["items"])
+    assert hit["total"] == len(hit["items"])
+    assert client.get("/api/v1/images?object=car", headers=auth).json()["total"] == 0
+    miss = client.get("/api/v1/images?object=person&min_confidence=0.99", headers=auth).json()
+    assert miss["total"] == 0
+
+
+def test_web_page_served(client):
+    r = client.get("/")
+    assert r.status_code == 200 and "Find objects in images" in r.text
+
+
 def test_invalid_and_unknown_ids(client, auth):
     assert client.get("/api/v1/images/..%2f..%2fetc", headers=auth).status_code in (404, 422)
     assert client.get("/api/v1/images/not-hex", headers=auth).status_code == 422

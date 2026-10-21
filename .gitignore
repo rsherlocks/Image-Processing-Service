@@ -10,3 +10,4 @@ cvat/
 *.egg-info/
 .idea/
 .vscode/
+demo/

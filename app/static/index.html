@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Find Objects in Images</title>
+<style>
+  :root { --bg:#f6f7f9; --fg:#1b1f24; --card:#fff; --line:#d8dce1; --accent:#2563eb; --muted:#667085; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171a; --fg:#e8eaed; --card:#1d2125; --line:#33383e; --accent:#6ea0ff; --muted:#9aa3ad; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:1000px; margin:0 auto; padding:16px; }
+  h1 { font-size:22px; margin:8px 0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  input[type=password], input[type=text], input[type=number] { padding:8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); min-width:0; }
+  input[type=password] { flex:1; min-width:200px; }
+  button { padding:8px 14px; border:0; border-radius:6px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+  button.secondary { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  button:disabled { opacity:.5; cursor:wait; }
+  #drop { border:2px dashed var(--line); border-radius:10px; padding:28px; text-align:center; color:var(--muted); cursor:pointer; }
+  #drop.over { border-color:var(--accent); color:var(--accent); }
+  #view { position:relative; display:none; margin-top:12px; }
+  #view img { max-width:100%; height:auto; display:block; border-radius:6px; }
+  table { width:100%; border-collapse:collapse; margin-top:12px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
+  .muted { color:var(--muted); font-size:13px; }
+  .err { color:#d92d20; }
+  #gallery { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; margin-top:12px; }
+  .thumb { border:1px solid var(--line); border-radius:8px; overflow:hidden; cursor:pointer; background:var(--bg); }
+  .thumb img { width:100%; height:110px; object-fit:cover; display:block; }
+  .thumb div { padding:4px 8px; font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Find objects in images</h1>
+
+  <div class="card">
+    <div class="row">
+      <label for="key">API key</label>
+      <input id="key" type="password" placeholder="Paste the API_KEYS value from .env" autocomplete="off">
+      <button id="saveKey" class="secondary">Remember</button>
+    </div>
+    <div class="muted">Stored only in this browser. Swagger docs: <a href="/docs">/docs</a></div>
+  </div>
+
+  <div class="card">
+    <div id="drop">Drop an image here, or click to choose<input id="file" type="file" accept="image/jpeg,image/png,image/webp,image/bmp" hidden></div>
+    <div id="status" class="muted" role="status" aria-live="polite"></div>
+    <div id="view"><img id="img" alt="Image with detected objects"></div>
+    <table id="results" hidden>
+      <thead><tr><th>Object</th><th>Confidence</th><th>Box (x1, y1, x2, y2)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <strong>Find stored images by object</strong>
+      <input id="obj" type="text" placeholder="e.g. person, car, dog" list="classes">
+      <datalist id="classes"></datalist>
+      <label for="minc">min confidence</label>
+      <input id="minc" type="number" min="0" max="1" step="0.05" value="0.25" style="width:80px">
+      <button id="search">Search</button>
+      <button id="all" class="secondary">Show all</button>
+    </div>
+    <div id="count" class="muted"></div>
+    <div id="gallery"></div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const store = { get(){ try { return localStorage.getItem("apiKey") || ""; } catch { return ""; } },
+                set(v){ try { localStorage.setItem("apiKey", v); } catch {} } };
+$("key").value = store.get();
+$("saveKey").onclick = () => { store.set($("key").value.trim()); setStatus("Key saved in this browser."); };
+
+function setStatus(msg, isErr) { const s = $("status"); s.textContent = msg; s.className = isErr ? "err" : "muted"; }
+function headers() { return { "X-API-Key": $("key").value.trim() }; }
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: { ...headers(), ...(opts.headers || {}) } });
+  if (!r.ok) {
+    let detail = r.statusText;
+    try { const j = await r.json(); detail = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail); } catch {}
+    throw new Error(r.status === 401 ? "Invalid or missing API key" : detail);
+  }
+  return r;
+}
+
+async function blobUrl(path) { return URL.createObjectURL(await (await api(path)).blob()); }
+
+async function show(record) {
+  $("img").src = await blobUrl(`/api/v1/images/${record.id}/processed`);
+  $("view").style.display = "block";
+  const body = $("results").querySelector("tbody");
+  body.replaceChildren();
+  for (const d of record.detections) {
+    const tr = body.insertRow();
+    tr.insertCell().textContent = d.class_name;
+    tr.insertCell().textContent = (d.confidence * 100).toFixed(0) + "%";
+    tr.insertCell().textContent = d.bbox_xyxy.map((v) => Math.round(v)).join(", ");
+  }
+  if (!record.detections.length) body.insertRow().insertCell().textContent = "No objects found";
+  $("results").hidden = false;
+  setStatus(`${record.detections.length} object(s) found in ${record.inference_ms.toFixed(0)} ms on ${record.device}.`);
+}
+
+async function upload(file) {
+  if (!file) return;
+  setStatus("Detecting objects…");
+  const fd = new FormData();
+  fd.append("file", file);
+  try {
+    const record = await (await api("/api/v1/images", { method: "POST", body: fd })).json();
+    await show(record);
+  } catch (e) { setStatus(e.message, true); }
+}
+
+const drop = $("drop"), fileInput = $("file");
+drop.onclick = () => fileInput.click();
+fileInput.onchange = () => upload(fileInput.files[0]);
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); upload(e.dataTransfer.files[0]); };
+
+async function loadGallery(object) {
+  const q = new URLSearchParams({ limit: "60" });
+  if (object) { q.set("object", object); q.set("min_confidence", $("minc").value || "0"); }
+  try {
+    const data = await (await api("/api/v1/images?" + q)).json();
+    $("count").textContent = `${data.total} image(s)` + (object ? ` containing "${object}"` : "");
+    const g = $("gallery");
+    g.replaceChildren();
+    for (const rec of data.items) {
+      const t = document.createElement("div"); t.className = "thumb";
+      const im = document.createElement("img"); im.alt = rec.original_filename;      const cap = document.createElement("div");
+      const names = [...new Set(rec.detections.map((d) => d.class_name))].join(", ") || "nothing";
+      cap.textContent = names;
+      t.append(im, cap);
+      t.onclick = () => { show(rec); window.scrollTo({ top: 0, behavior: "smooth" }); };
+      g.append(t);
+      blobUrl(`/api/v1/images/${rec.id}/processed`).then((u) => (im.src = u)).catch(() => {});
+      rec.detections.forEach((d) => addClass(d.class_name));
+    }
+  } catch (e) { $("count").textContent = e.message; $("count").className = "err"; return; }
+  $("count").className = "muted";
+}
+function addClass(name) {
+  const dl = $("classes");
+  if (![...dl.options].some((o) => o.value === name)) dl.append(new Option(name));
+}
+$("search").onclick = () => loadGallery($("obj").value.trim());
+$("all").onclick = () => { $("obj").value = ""; loadGallery(""); };
+$("obj").onkeydown = (e) => { if (e.key === "Enter") $("search").click(); };
+if ($("key").value) loadGallery("");
+</script>
+</body>
+</html>

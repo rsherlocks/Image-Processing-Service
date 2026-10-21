@@ -1,8 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from app import __version__
 from app.api.images import router as images_router
@@ -48,6 +50,12 @@ def create_app() -> FastAPI:
             allow_headers=["X-API-Key", "Content-Type"],
         )
     app.include_router(images_router)
+
+    index_html = (Path(__file__).parent / "static" / "index.html").read_text(encoding="utf-8")
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    def index():
+        return index_html
 
     @app.get("/health", response_model=Health, tags=["system"])
     def health(
