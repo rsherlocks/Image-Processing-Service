@@ -21,7 +21,7 @@ def validate_image(data: bytes, settings: Settings) -> tuple[Image.Image, str]:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Empty file")
     if len(data) > settings.max_upload_bytes:
         raise HTTPException(
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, f"File exceeds {settings.max_upload_mb} MB"
+            413, f"File exceeds {settings.max_upload_mb} MB"
         )
     Image.MAX_IMAGE_PIXELS = settings.max_image_pixels  # decompression-bomb guard
     try:

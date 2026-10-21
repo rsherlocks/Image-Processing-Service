@@ -38,7 +38,7 @@ async def _read_limited(file: UploadFile, limit: int) -> bytes:
     """Read at most limit+1 bytes so oversized uploads are rejected without buffering them all."""
     data = await file.read(limit + 1)
     if len(data) > limit:
-        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "File too large")
+        raise HTTPException(413, "File too large")
     return data
 
 
