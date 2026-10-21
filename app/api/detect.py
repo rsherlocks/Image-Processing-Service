@@ -40,7 +40,7 @@ async def detect_objects(
 
     detections = output.detections
     if classes:
-        wanted = {c.strip().lower() for c in classes.split(",") if c.strip()}
+        wanted = {c.strip().strip("'\"").lower() for c in classes.split(",") if c.strip()}
         detections = [d for d in detections if d.class_name.lower() in wanted]
 
     encoded = None

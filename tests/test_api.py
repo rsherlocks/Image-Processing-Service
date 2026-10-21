@@ -95,6 +95,8 @@ def test_detect_class_filter_and_auth(client, auth, png_bytes):
     files = {"file": ("a.png", png_bytes, "image/png")}
     r = client.post("/api/v1/detect", headers=auth, files=files, data={"classes": "car"})
     assert r.json()["count"] == 0 and r.json()["annotated_image_base64"] is None
+    quoted = client.post("/api/v1/detect", headers=auth, files=files, data={"classes": "'person'"})
+    assert quoted.json()["count"] == 1
     assert client.post("/api/v1/detect", files=files).status_code == 401
     bad = client.post("/api/v1/detect", headers=auth, files={"file": ("x.png", b"junk", "image/png")})
     assert bad.status_code == 400
