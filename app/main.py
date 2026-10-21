@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
 from app import __version__
+from app.api.detect import router as detect_router
 from app.api.images import router as images_router
 from app.config import Settings, get_settings
 from app.deps import get_azure, get_detector, get_storage
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
             allow_headers=["X-API-Key", "Content-Type"],
         )
     app.include_router(images_router)
+    app.include_router(detect_router)
 
     index_html = (Path(__file__).parent / "static" / "index.html").read_text(encoding="utf-8")
 

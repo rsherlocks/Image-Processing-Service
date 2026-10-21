@@ -38,6 +38,20 @@ class ImageList(BaseModel):
     items: list[ImageRecord]
 
 
+class DetectResponse(BaseModel):
+    width: int
+    height: int
+    model: str
+    device: str
+    inference_ms: float
+    count: int
+    summary: dict[str, int] = Field(description="Objects found per class, e.g. {'person': 4}")
+    detections: list[Detection]
+    annotated_image_base64: str | None = Field(
+        None, description="JPEG with boxes drawn (only when include_image=true)"
+    )
+
+
 class BatchItemError(BaseModel):
     filename: str
     error: str

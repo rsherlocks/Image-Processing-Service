@@ -39,6 +39,7 @@ All `/api/v1/*` routes need header `X-API-Key`.
 
 | Method | Path | Purpose |
 |---|---|---|
+| POST | `/api/v1/detect` | **Image in, objects out**; nothing saved (`classes`, `conf`, `include_image`) |
 | POST | `/api/v1/images` | Upload one image (`file`, optional `conf`) → detections |
 | POST | `/api/v1/images/batch` | Up to 20 images; per-file errors |
 | GET | `/api/v1/images` | List (`limit`, `offset`) |

@@ -76,6 +76,30 @@ def test_get_list_download(client, auth, uploaded):
     assert proc.headers["content-type"] == "image/jpeg"
 
 
+def test_detect_returns_objects_without_saving(client, auth, png_bytes):
+    before = client.get("/api/v1/images", headers=auth).json()["total"]
+    r = client.post(
+        "/api/v1/detect",
+        headers=auth,
+        files={"file": ("a.png", png_bytes, "image/png")},
+        data={"include_image": "true"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["count"] == 1 and body["summary"] == {"person": 1}
+    assert body["annotated_image_base64"]
+    assert client.get("/api/v1/images", headers=auth).json()["total"] == before
+
+
+def test_detect_class_filter_and_auth(client, auth, png_bytes):
+    files = {"file": ("a.png", png_bytes, "image/png")}
+    r = client.post("/api/v1/detect", headers=auth, files=files, data={"classes": "car"})
+    assert r.json()["count"] == 0 and r.json()["annotated_image_base64"] is None
+    assert client.post("/api/v1/detect", files=files).status_code == 401
+    bad = client.post("/api/v1/detect", headers=auth, files={"file": ("x.png", b"junk", "image/png")})
+    assert bad.status_code == 400
+
+
 def test_search_by_object(client, auth, uploaded):
     hit = client.get("/api/v1/images?object=Person&min_confidence=0.5", headers=auth).json()
     assert any(i["id"] == uploaded["id"] for i in hit["items"])
